@@ -1,44 +1,48 @@
 package com.example.tutorm6
 
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.example.tutorm6.databinding.UserItemBinding
 
-class UserAdapter (
-    val data: MutableList<UserEntity>,
-    var onEditClickListener:((UserEntity)->Unit)? = null,
-    var onDeleteClickListener:((UserEntity)->Unit)? = null,
-): RecyclerView.Adapter<UserAdapter.ViewHolder>() {
-    class ViewHolder(val row: View) : RecyclerView.ViewHolder(row){
-        val txtData: TextView = row.findViewById(R.id.txtData)
-        val txtGender: TextView = row.findViewById(R.id.txtGender)
-        val btnEdit: Button = row.findViewById(R.id.btnEdit)
-        val btnDelete: Button = row.findViewById(R.id.btnDelete)
+class UserDiffUtil:DiffUtil.ItemCallback<UserEntity>(){
+    override fun areItemsTheSame(oldItem: UserEntity, newItem: UserEntity): Boolean {
+        return oldItem.username == newItem.username
     }
 
+    override fun areContentsTheSame(oldItem: UserEntity, newItem: UserEntity): Boolean {
+        return oldItem == newItem
+    }
+}
+
+val userDiffUtil = UserDiffUtil()
+
+class UserAdapter: ListAdapter<UserEntity, UserAdapter.ViewHolder>(userDiffUtil){
+    var onEditClickListener:((UserEntity)->Unit)? = null
+    var onDeleteClickListener:((UserEntity)->Unit)? = null
+
+    class ViewHolder(val binding: UserItemBinding)
+        :RecyclerView.ViewHolder(binding.root)
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val layout = LayoutInflater.from(parent.context).inflate(
-            R.layout.user_item, parent, false)
-        return ViewHolder(layout)
+        val binding = UserItemBinding.inflate(
+            LayoutInflater.from(parent.context),
+            parent, false
+        )
+        return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val u = data[position]
-        holder.txtData.text = "${u.username} ${u.name}"
-        holder.txtGender.text = u.gender
+        val user = getItem(position)
+        holder.binding.user = user
 
-        holder.btnDelete.setOnClickListener{
-            onDeleteClickListener?.invoke(u)
+        holder.binding.btnEdit.setOnClickListener {
+            onEditClickListener?.invoke(user)
         }
-        holder.btnEdit.setOnClickListener{
-            onEditClickListener?.invoke(u)
+        holder.binding.btnDelete.setOnClickListener {
+            onDeleteClickListener?.invoke(user)
         }
-    }
-
-    override fun getItemCount(): Int {
-        return data.size
     }
 }

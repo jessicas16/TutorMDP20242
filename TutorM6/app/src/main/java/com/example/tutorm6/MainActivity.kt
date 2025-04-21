@@ -8,9 +8,13 @@ import android.widget.Button
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.viewModels
+import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.room.Room
+import com.example.tutorm6.databinding.ActivityMainBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -44,172 +48,66 @@ Jika mau melihat isi dari DB, kalian bisa ikuti langkah berikut
  */
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
-    private lateinit var txtName: TextView
-    private lateinit var txtUsername: TextView
-    private lateinit var txtPassword: TextView
-    private lateinit var btnSave: Button
-    private lateinit var spGender: Spinner
-    private lateinit var rvUser: RecyclerView
-    private lateinit var userAdapter: UserAdapter
-    //Deklarasi variabel AppDatabase
+    val viewModel by viewModels<UserViewModel>()
+
+    //Deklarasi variabel AppDatabase, jika tidak memakai ViewModel (tidak disarankan)
     private lateinit var db: AppDatabase
-
-    /*
-    Deklarasi variabel Coroutine
-    KotlinCoroutine merupakan variabel yang digunakan untuk mengeksekusi command
-    di luar main threading, basically executing asynchronous command.
-    Contohnya adalah pemanggilan query database.
-    Knp harus di luar main threading?
-    Karena kalo query diexecute di dalem main threading (UI thread) bakal nyebabin aplikasi android
-    ngecrash
-    Untuk tutor ini, kita pakai Thread-nya IO
-     */
-    private val coroutine = CoroutineScope(Dispatchers.IO)
-    private lateinit var users: ArrayList<UserEntity>
-    private var isInsertMode = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
-        txtName = findViewById(R.id.txtName)
-        txtUsername = findViewById(R.id.txtUsername)
-        txtPassword = findViewById(R.id.txtPassword)
-        btnSave = findViewById(R.id.btnSave)
-        spGender = findViewById(R.id.spGender)
-        rvUser = findViewById(R.id.rvUser)
-
-        var listGender:ArrayList<String> = arrayListOf("Pria", "Wanita")
-
-        var spinnerAdapter: ArrayAdapter<String> = ArrayAdapter<String>(
-            this,android.R.layout.simple_spinner_item,listGender)
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spGender.adapter = spinnerAdapter
+        viewModel.init()
+        binding.viewModel = viewModel
+        binding.lifecycleOwner = this
 
         //cara pertama inisiasi instance
 //        db = Room.databaseBuilder(baseContext, AppDatabase::class.java, "prakm7").fallbackToDestructiveMigration().build()
         // .fallbackToDestructiveMigration() berguna jika kita menaikan versiond dari db
         // kita tidak perlu melakukan migrate. Biasanya akan diminta untuk migrate jika menaikkan version db
 
-        //cara kedua, penjelasan lebih lengkap pada class AppDatabase
-        db = AppDatabase.build(this)
+        //cara kedua, akan menggunakan class App sebagai tempat dimana viewModel dapat mengakses db langsung tanpa terikat dengan Activity
 
-        users = ArrayList()
-        rvUser.layoutManager = LinearLayoutManager(this,
-            LinearLayoutManager.VERTICAL, false)
-        userAdapter = UserAdapter(users)
-        rvUser.adapter = userAdapter
+        //==============================================
 
+        val userAdapter = UserAdapter()
 
-        /*
-        Untuk melakukan query DB, command2 query ditaruh di dalam scope coroutine.launch{}
-        Artinya, command2 di dalam scope ini akan diexecute di luar main thread
-         */
-        coroutine.launch {
-            val tmpUser = db.userDao().fetch() //membaca database local di device user
-            users.clear()
-            users.addAll(tmpUser)
-            /*
-            Di dalam scope thread IO, kita juga bisa mengexecute command di main thread
-            dengan membuat scope runOnUiThread{}
-             */
-            runOnUiThread {
-                Toast.makeText(this@MainActivity, "Panjang list : ${users.size.toString()}", Toast.LENGTH_SHORT).show()
-                userAdapter.notifyDataSetChanged()
-            }
-        }
-        userAdapter.onEditClickListener = {
-            isInsertMode = false
-            btnSave.text = "UPDATE"
-            txtName.text = it.name
-            txtUsername.text = it.username
-            txtPassword.text = it.password
-            val selectedGender:Int = when(it.gender){
-                "Pria" -> 0
-                else -> 1
-            }
-            spGender.setSelection(selectedGender)
-        }
-        userAdapter.onDeleteClickListener = {
-            coroutine.launch {
-                db.userDao().deleteQuery(it.username)
-                refresh()
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, "User Deleted", Toast.LENGTH_SHORT).show()
-                    resetFields()
-                }
-            }
+        userAdapter.onEditClickListener = { user ->
+            viewModel.setActiveUser(user.username)
         }
 
-        btnSave.text = "INSERT"
+        userAdapter.onDeleteClickListener = { user ->
+            viewModel.deleteStudent(user)
+        }
 
-        btnSave.setOnClickListener {
-            val name = txtName.text.toString()
-            val username = txtUsername.text.toString()
-            val password = txtPassword.text.toString()
-            val gender: String = spGender.selectedItem.toString()
+        binding.rvUser.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
+        binding.rvUser.adapter = userAdapter
 
-            if (name == "" || username == "" || password == ""){
+        binding.btnSave.setOnClickListener {
+            val username = binding.txtUsername.text.toString()
+            val password = binding.txtPassword.text.toString()
+            val name = binding.txtName.text.toString()
+            val gender = binding.etGender.text.toString()
+
+            if (name == "" || username == "" || password == "" || gender == "") {
                 Toast.makeText(this, "All field is required!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-
-            val user = UserEntity(
-                name = name,
-                username = username,
-                password = password,
-                gender = gender,
-            )
-
-            coroutine.launch {
-                if (isInsertMode) {
-                    if (db.userDao().get(user.username) != null) {
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "Username not unique", Toast.LENGTH_SHORT)
-                                .show()
-                        }
-                    } else {
-                        db.userDao().insert(user)
-                        refresh()
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "New user Inserted", Toast.LENGTH_SHORT).show()
-                            resetFields()
-                        }
-                    }
-                } else {
-                    db.userDao().update(user)
-                    refresh()
-                    isInsertMode = true
-                    runOnUiThread {
-                        btnSave.text = "INSERT"
-                        resetFields()
-                        Toast.makeText(this@MainActivity, "Success update user", Toast.LENGTH_SHORT)
-                            .show()
-                    }
-                }
-            }
+            viewModel.putUser(UserEntity(username, password, name, gender))
         }
-        btnSave.setOnLongClickListener{
-            resetFields()
-            Toast.makeText(this, "Field Reset", Toast.LENGTH_SHORT).show()
-            return@setOnLongClickListener true
-        }
-    }
 
-    private fun refresh() {
-        users.clear()
-        users.addAll(db.userDao().fetch().toMutableList())
-        Log.i("USER", users.toString())
-        runOnUiThread {
-            userAdapter.notifyDataSetChanged()
+        val usersObserver = Observer<List<UserEntity>> {
+            userAdapter.submitList(it)
         }
-    }
+        viewModel.users.observe(this, usersObserver)
 
-    fun resetFields() {
-        txtUsername.setText("")
-        txtName.setText("")
-        txtPassword.setText("")
-        spGender.setSelection(0)
+        val modeForm = Observer<UserEntity> {
+            binding.btnSave.text = if (it.username == "") "Insert" else "Update"
+            binding.txtUsername.isEnabled = it.username == ""
+        }
+        viewModel.activeUser.observe(this, modeForm)
     }
 }

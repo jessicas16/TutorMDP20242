@@ -20,20 +20,20 @@ parameter functionnya
 @Dao
 interface UserDao {
     @Insert
-    fun insert(user:UserEntity)
+    suspend fun insert(user:UserEntity)
 
     @Update
-    fun update(user:UserEntity)
+    suspend fun update(user:UserEntity)
 
     @Delete
-    fun delete(user:UserEntity)
+    suspend fun delete(user:UserEntity)
 
     @Query("DELETE FROM users where username = :username")
-    fun deleteQuery(username: String):Int //return Int jika mau tau brp row yg kehapus
+    suspend fun deleteQuery(username: String):Int //return Int jika mau tau brp row yg kehapus
 
     @Query("SELECT * FROM users")
-    fun fetch():List<UserEntity>
+    suspend fun fetch():List<UserEntity>
 
     @Query("SELECT * FROM users where username = :username")
-    fun get(username:String):UserEntity?
+    suspend fun get(username:String):UserEntity?
 }
