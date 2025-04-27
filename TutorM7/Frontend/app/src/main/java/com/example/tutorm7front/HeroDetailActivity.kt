@@ -5,14 +5,13 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Observer
 import com.example.tutorm7front.databinding.ActivityHeroDetailBinding
-import com.example.tutorm7front.network.RetrofitInstance
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.net.URL
 import android.graphics.BitmapFactory
 
@@ -20,6 +19,7 @@ class HeroDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHeroDetailBinding
     private lateinit var hero: HeroEntity
+    private val viewModel: HeroDetailViewModel by viewModels()
     private lateinit var editHeroLauncher: ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,6 +30,7 @@ class HeroDetailActivity : AppCompatActivity() {
         hero = intent.getSerializableExtra("hero") as HeroEntity
 
         setupView()
+        setupObservers()
         setupEditLauncher()
         setupButtons()
     }
@@ -45,7 +46,7 @@ class HeroDetailActivity : AppCompatActivity() {
                 val input = url.openStream()
                 val bitmap = BitmapFactory.decodeStream(input)
 
-                withContext(Dispatchers.Main) {
+                runOnUiThread {
                     binding.imageViewHero.setImageBitmap(bitmap)
                 }
             } catch (e: Exception) {
@@ -54,10 +55,32 @@ class HeroDetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupObservers() {
+        viewModel.deleteResult.observe(this, Observer { success ->
+            if (success) {
+                Toast.makeText(this, "Hero deleted", Toast.LENGTH_SHORT).show()
+                setResult(RESULT_OK)
+                finish()
+            } else {
+                Toast.makeText(this, "Failed to delete hero", Toast.LENGTH_SHORT).show()
+            }
+        })
+
+        viewModel.editResult.observe(this, Observer { success ->
+            if (success) {
+                Toast.makeText(this, "Hero updated", Toast.LENGTH_SHORT).show()
+                setResult(RESULT_OK)
+                finish()
+            } else {
+                Toast.makeText(this, "Failed to update hero", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
     private fun setupEditLauncher() {
         editHeroLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                setResult(RESULT_OK) // Notify MainActivity to refresh
+                setResult(RESULT_OK)
                 finish()
             }
         }
@@ -71,26 +94,11 @@ class HeroDetailActivity : AppCompatActivity() {
         }
 
         binding.buttonDelete.setOnClickListener {
-            deleteHero()
+            viewModel.deleteHero(hero.id)
         }
 
         binding.buttonBack.setOnClickListener {
             finish()
-        }
-    }
-
-    private fun deleteHero() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                RetrofitInstance.instance.deleteHero(hero.id)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@HeroDetailActivity, "Hero deleted", Toast.LENGTH_SHORT).show()
-                    setResult(RESULT_OK) // Notify MainActivity to refresh
-                    finish()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
         }
     }
 }
