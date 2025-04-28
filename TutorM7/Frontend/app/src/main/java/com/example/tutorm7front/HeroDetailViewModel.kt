@@ -1,5 +1,6 @@
 package com.example.tutorm7front
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -16,6 +17,23 @@ class HeroDetailViewModel : ViewModel() {
 
     private val _editResult = MutableLiveData<Boolean>()
     val editResult: LiveData<Boolean> = _editResult
+
+    private val _hero = MutableLiveData<HeroEntity>()
+    val hero: LiveData<HeroEntity> = _hero
+
+    fun fetchHeroById(heroId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val response = RetrofitInstance.instance.getHeroById(heroId)
+                withContext(Dispatchers.Main) {
+                    _hero.value = response.hero
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
 
     fun deleteHero(heroId: String) {
         viewModelScope.launch(Dispatchers.IO) {

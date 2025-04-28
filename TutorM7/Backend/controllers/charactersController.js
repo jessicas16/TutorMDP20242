@@ -23,14 +23,12 @@ const getAllHeroes = (req, res) => {
   });
 };
 
-const getHeroByName = (req, res) => {
-  const heroName = req.params.name;
-  const searchedHeroes = filteredHeroes.filter(
-    (hero) =>
-      hero.name.toLowerCase().includes(heroName.toLowerCase()) &&
-      hero.deleted_at === null
+const getHeroById = (req, res) => {
+  const heroId = req.params.id;
+  const hero = filteredHeroes.find(
+    (hero) => hero.id === heroId && hero.deleted_at === null
   );
-  if (searchedHeroes.length === 0) {
+  if (!hero) {
     return res.status(404).json({
       status: 404,
       message: "Hero not found",
@@ -38,7 +36,7 @@ const getHeroByName = (req, res) => {
   }
   return res.status(200).json({
     status: 200,
-    hero: searchedHeroes,
+    hero,
   });
 };
 
@@ -69,33 +67,6 @@ const getDeletedHeroes = (req, res) => {
   });
 };
 
-const createHero = (req, res) => {
-  const { id, name, description, difficulty } = req.body;
-
-  if (!id || !name || !description || !difficulty) {
-    return res.status(400).json({
-      status: 400,
-      message: "All fields are required",
-    });
-  }
-
-  const newHero = {
-    id,
-    name,
-    description,
-    difficulty,
-    image: null,
-    deleted_at: null,
-  };
-
-  filteredHeroes.push(newHero);
-
-  return res.status(201).json({
-    status: 201,
-    message: "Hero created successfully",
-    hero: newHero,
-  });
-};
 
 const updateHero = (req, res) => {
   const heroId = req.params.id;
@@ -124,9 +95,8 @@ const updateHero = (req, res) => {
 
 module.exports = {
   getAllHeroes,
-  getHeroByName,
+  getHeroById,
   deleteHero,
   getDeletedHeroes,
-  createHero,
   updateHero,
 };

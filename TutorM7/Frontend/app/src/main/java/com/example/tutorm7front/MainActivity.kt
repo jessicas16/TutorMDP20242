@@ -45,7 +45,7 @@ class MainActivity : AppCompatActivity() {
         viewModel.heroes.observe(this, Observer { heroes ->
             binding.recyclerView.adapter = HeroAdapter(heroes) { hero ->
                 val intent = Intent(this, HeroDetailActivity::class.java)
-                intent.putExtra("hero", hero)
+                intent.putExtra("heroId", hero.id)
                 heroDetailLauncher.launch(intent)
             }
         })
